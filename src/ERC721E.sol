@@ -15,9 +15,11 @@ import "./utils/Strings.sol";
 //    ███████╗██║  ██║╚██████╗       ██║  ███████╗ ██║    ███████╗    //
 //    ╚══════╝╚═╝  ╚═╝ ╚═════╝       ╚═╝  ╚══════╝ ╚═╝    ╚══════╝    //
 //                                                                    //
+//                https://github.com/0xAvatar/erc721e                 //
+//                                                                    //
 ////////////////////////////////////////////////////////////////////////
 
-/// @notice An ERC-721 implementation with an NFT linked with every wallet by default
+/// @notice An ERC-721 implementation with an NFT linked with __E__very wallet by default
 /// @author k0rean_rand0m (https://twitter.com/k0rean_rand0m | https://github.com/k0rean-rand0m)
 abstract contract ERC721E is IERC721E, IERC721  {
 
@@ -36,14 +38,14 @@ abstract contract ERC721E is IERC721E, IERC721  {
     mapping(uint256 => address) private _ownerOf;
     mapping(address => uint256) private _balanceOf;
     mapping(uint256 => bool) private _minted;
-    bool private _transferable;
+    bool public transferable;
 
     //// CONSTRUCTOR ////
 
-    constructor(string memory _name, string memory _symbol, bool transferable) {
+    constructor(string memory _name, string memory _symbol, bool _transferable) {
         name = _name;
         symbol = _symbol;
-        _transferable = transferable;
+        transferable = _transferable;
     }
 
     //// IERC721E IMPLEMENTATION ////
@@ -114,6 +116,7 @@ abstract contract ERC721E is IERC721E, IERC721  {
         address to,
         uint256 id
     ) public virtual {
+        require(transferable, "NOT_TRANSFERABLE");
         require(from == ownerOf(id), "WRONG_FROM");
         require(to != address(0), "INVALID_RECIPIENT");
         require(
