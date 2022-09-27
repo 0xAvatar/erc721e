@@ -1,29 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import "./IERC721E.sol";
+import "./interfaces/IERC721E.sol";
+import "./interfaces/IERC721.sol";
+import "./utils/Base64.sol";
+import "./utils/Strings.sol";
 
-/// @notice An ERC-721 implementation with an NFT linked with every wallet
+////////////////////////////////////////////////////////////////////////
+//                                                                    //
+//    ███████╗██████╗  ██████╗    ███████╗██████╗  ██╗    ███████╗    //
+//    ██╔════╝██╔══██╗██╔════╝    ╚════██║╚════██╗███║    ██╔════╝    //
+//    █████╗  ██████╔╝██║             ██╔╝ █████╔╝╚██║    █████╗      //
+//    ██╔══╝  ██╔══██╗██║            ██╔╝ ██╔═══╝  ██║    ██╔══╝      //
+//    ███████╗██║  ██║╚██████╗       ██║  ███████╗ ██║    ███████╗    //
+//    ╚══════╝╚═╝  ╚═╝ ╚═════╝       ╚═╝  ╚══════╝ ╚═╝    ╚══════╝    //
+//                                                                    //
+////////////////////////////////////////////////////////////////////////
+
+/// @notice An ERC-721 implementation with an NFT linked with every wallet by default
 /// @author k0rean_rand0m (https://twitter.com/k0rean_rand0m | https://github.com/k0rean-rand0m)
-abstract contract ERC721E is IERC721E {
+abstract contract ERC721E is IERC721E, IERC721  {
 
-    //// EVENTS ////
-
-    event Transfer(address indexed from, address indexed to, uint256 indexed id);
-
-    event Approval(address indexed owner, address indexed spender, uint256 indexed id);
-
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+    using Strings for uint256;
 
     //// STORAGE ////
 
     // PUBLIC //
     string public name;
-
     string public symbol;
-
     mapping(uint256 => address) public getApproved;
-
     mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     // PRIVATE //
@@ -43,7 +48,7 @@ abstract contract ERC721E is IERC721E {
 
     //// IERC721E IMPLEMENTATION ////
 
-    function originalTokenOf(address originalOwner) external pure virtual returns (uint256 id) {
+    function originalTokenOf(address originalOwner) public pure virtual returns (uint256 id) {
         return uint256(bytes32(bytes20(originalOwner)) >> 96);
     }
 
@@ -54,13 +59,12 @@ abstract contract ERC721E is IERC721E {
 
     //// IERC721 IMPLEMENTATION ////
 
-    // TODO
     function tokenURI(uint256 id) public view virtual returns (string memory) {
         bytes memory dataURI = abi.encodePacked(
         '{',
-            '"name": "Wallet Number #', id.toString(), '",',
+            '"name": "ERC721E #', id.toString(), '",',
             '"external_url": "https://twitter.com/k0rean_rand0m"',
-            '"description": "You already own this NFT. Claim for free to see it in your wallet.",',
+            '"description": "A token you already own",',
             '"animation_url": "https://erc721wb.github.io?collection=wallet_number&id=', id.toString(), '"'
         '}'
         );
@@ -74,6 +78,7 @@ abstract contract ERC721E is IERC721E {
 
     function ownerOf(uint256 id) public view virtual returns (address owner) {
         require(abi.encodePacked(id).length <= 20, "NOT_EXISTS");
+
         owner = _ownerOf[id];
         if (owner == address(0) && !_minted[id]) {
             return originalOwnerOf(id);
@@ -84,21 +89,17 @@ abstract contract ERC721E is IERC721E {
         require(owner != address(0), "ZERO_ADDRESS");
 
         uint256 balance = _balanceOf[owner];
-
         if (!_minted[originalTokenOf(owner)]) {
             balance += 1;
         }
-
         return balance;
     }
 
     function approve(address spender, uint256 id) public virtual {
         address owner = ownerOf(id);
-
         require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "NOT_AUTHORIZED");
 
         getApproved[id] = spender;
-
         emit Approval(owner, spender, id);
     }
 
@@ -114,9 +115,7 @@ abstract contract ERC721E is IERC721E {
         uint256 id
     ) public virtual {
         require(from == ownerOf(id), "WRONG_FROM");
-
         require(to != address(0), "INVALID_RECIPIENT");
-
         require(
             msg.sender == from || isApprovedForAll[from][msg.sender] || msg.sender == getApproved[id],
             "NOT_AUTHORIZED"
@@ -132,9 +131,7 @@ abstract contract ERC721E is IERC721E {
         }
 
         _ownerOf[id] = to;
-
         delete getApproved[id];
-
         emit Transfer(from, to, id);
     }
 
@@ -169,20 +166,18 @@ abstract contract ERC721E is IERC721E {
         );
     }
 
-    //// TODO IERC165 IMPLEMENTATION ////
-
     function supportsInterface(bytes4 interfaceId) public view virtual returns (bool) {
         return
+            interfaceId == type(IERC721E).interfaceId ||
             interfaceId == 0x01ffc9a7 || // ERC165 Interface ID for ERC165
             interfaceId == 0x80ac58cd || // ERC165 Interface ID for ERC721
-            interfaceId == 0x5b5e139f; // ERC165 Interface ID for ERC721Metadata
+            interfaceId == 0x5b5e139f; // ERC165 Interface ID for ERC721Metadata;
     }
 
     //// INTERNALS ////
 
     function _mint(address to, uint256 id) internal virtual {
         require(to != address(0), "INVALID_RECIPIENT");
-
         require(_ownerOf[id] == address(0), "ALREADY_MINTED");
 
         unchecked {
@@ -190,26 +185,20 @@ abstract contract ERC721E is IERC721E {
         }
 
         _ownerOf[id] = to;
-
         _minted[id] = true;
-
         emit Transfer(address(0), to, id);
     }
 
     function _burn(uint256 id) internal virtual {
         address owner = _ownerOf[id];
-
         require(owner != address(0), "NOT_MINTED");
 
-        // Ownership check above ensures no underflow.
         unchecked {
             _balanceOf[owner]--;
         }
 
         delete _ownerOf[id];
-
         delete getApproved[id];
-
         emit Transfer(owner, address(0), id);
     }
 
